@@ -4,62 +4,47 @@ on:
   push:
     branches: [ "main", "rel-*" ]
 
-env:
-  NAME: World
-
 jobs:
 
   build:
 
     runs-on: ubuntu-20.04
 
-    timeout-minutes: 5
-
-    steps:
-
-      - name: Greet user
-        run: echo "Hello $NAME"
-
-      - name: Another step
-        run: echo "This is another step in the same job"
-
-  test:
-
-    strategy:
-      max-parallel: 2
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-        browser: [chrome, firefox]
-        device: [desktop, mobile]
-        include:
-          - os: windows-latest
-            browser: edge
-            device: desktop
-        exclude:
-          - os: ubuntu-20.04
-            browser: chrome
-            device: mobile
-
-    runs-on: ${{ matrix.os }}
-
     timeout-minutes: 10
 
-    needs: build
-
-    env:
-      NAME: Planet
-
     steps:
 
-      - name: Demo of how to access current matrix context
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Inspect environment
         run: |
-          echo "Browser:" ${{ matrix.browser }}
-          echo "Device: ${{ matrix.device }}"
+          echo "----------------------------------------------------------"
+          echo Event: ${{ github.event_name }}
+          echo Branch: ${{ github.ref }}
+          echo Repo: ${{ github.repository }}
+          echo "----------------------------------------------------------"
+          echo Home dir: $HOME
+          echo Current dir: $(pwd)
+          echo "----------------------------------------------------------"
+          uname -a
+          lsb_release -a
+          echo "----------------------------------------------------------"
 
-      - name: Step inside test job
-        run: echo "Hello $NAME"
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: 'maven'
 
-      - name: Another step
-        run: echo "This is another step in the same job"
+      - name: Build with Maven
+        run: |
+          version=$(mvn help:evaluate -q -DforceStdout -Dexpression=project.version)
+          echo "Building app version $version ..."
+          mvn clean dependency:build-classpath package -Dmaven.test.skip=true -Dmdep.outputFile=clspath.txt
+
+      - name: Run tests
+        run: mvn test
 
 
